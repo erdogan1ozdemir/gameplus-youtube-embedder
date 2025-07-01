@@ -3,8 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game+ YouTube Embed & HTML Converter</title>
+    <title>Temiz HTML ↔ Rich Text Dönüştürücü</title>
     <style>
+        :root {
+            --primary-color: #00ff88;
+            --secondary-color: #00cc6a;
+            --dark-bg-1: #0a0a0a;
+            --dark-bg-2: #1a1a1a;
+            --dark-bg-3: #2d2d2d;
+            --text-light: #ffffff;
+            --text-dark: #000000;
+            --text-muted: #e0e0e0;
+            --border-color: rgba(0, 255, 136, 0.3);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,578 +25,256 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f2027 100%);
+            background: linear-gradient(135deg, var(--dark-bg-1) 0%, var(--dark-bg-2) 50%, #0f2027 100%);
             min-height: 100vh;
-            padding: 15px;
-            color: #ffffff;
+            padding: 20px;
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
         }
 
-        .main-container {
+        .container {
             max-width: 1400px;
+            width: 100%;
             margin: 0 auto;
-            padding: 20px 0;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 40px;
-            padding: 30px;
-            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+            margin-bottom: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0, 255, 136, 0.2);
         }
 
         .header h1 {
-            color: #000;
-            font-size: clamp(1.8rem, 4vw, 3.2rem);
+            color: var(--text-dark);
+            font-size: clamp(1.5rem, 3vw, 2.5rem);
             font-weight: 700;
             margin-bottom: 10px;
-            text-shadow: none;
         }
 
         .header p {
             color: rgba(0,0,0,0.8);
-            font-size: clamp(1rem, 2vw, 1.3rem);
+            font-size: clamp(0.9rem, 1.5vw, 1.1rem);
             font-weight: 500;
         }
 
-        .converter-grid {
+        .converter-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .editor-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(min(100%, 600px), 1fr));
-            gap: 30px;
-            margin-bottom: 40px;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            min-height: 500px;
         }
 
-        .converter-card {
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            border: 2px solid rgba(0, 255, 136, 0.3);
+        .editor-panel {
+            background: linear-gradient(135deg, var(--dark-bg-2) 0%, var(--dark-bg-3) 100%);
+            border: 2px solid var(--border-color);
             border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-            transition: all 0.3s ease;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
             position: relative;
             overflow: hidden;
         }
 
-        .converter-card::before {
+        .editor-panel::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             height: 3px;
-            background: linear-gradient(90deg, #00ff88, #00cc6a, #00ff88);
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--primary-color));
             border-radius: 20px 20px 0 0;
         }
 
-        .converter-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(0, 255, 136, 0.6);
-            box-shadow: 0 30px 60px rgba(0, 255, 136, 0.2);
-        }
-
-        .card-title {
-            font-size: 1.5rem;
-            color: #00ff88;
-            margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-weight: 600;
-        }
-
-        .input-group {
-            margin-bottom: 25px;
-            position: relative;
-        }
-
-        .input-group label {
-            display: block;
-            margin-bottom: 10px;
-            color: #ffffff;
-            font-weight: 500;
-            font-size: 16px;
-        }
-
-        .input-wrapper {
-            position: relative;
-        }
-
-        .paste-btn {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-            color: #000;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            z-index: 10;
-        }
-
-        .paste-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
-        }
-
-        .paste-btn:active {
-            transform: scale(0.95);
-        }
-
-        .input-field {
-            width: 100%;
-            padding: 18px 100px 18px 20px;
-            border: 2px solid rgba(0, 255, 136, 0.3);
-            border-radius: 12px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.05);
-            color: #ffffff;
-            font-family: inherit;
-            resize: vertical;
-            min-height: 60px;
-        }
-
-        .input-field:focus {
-            outline: none;
-            border-color: #00ff88;
-            background: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.15);
-        }
-
-        .input-field::placeholder {
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .textarea-field {
-            min-height: 200px;
-            max-height: 500px;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .convert-btn {
-            width: 100%;
-            padding: 18px 24px;
-            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-            color: #000;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .convert-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 30px rgba(0, 255, 136, 0.4);
-            background: linear-gradient(135deg, #00ff88 0%, #00e676 100%);
-        }
-
-        .convert-btn:active {
-            transform: translateY(0);
-        }
-
-        .convert-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .message {
-            padding: 18px 20px;
-            border-radius: 12px;
-            margin: 20px 0;
-            display: none;
-            font-weight: 500;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .error {
-            background: rgba(255, 82, 82, 0.15);
-            color: #ff5252;
-            border: 2px solid rgba(255, 82, 82, 0.3);
-            border-left: 6px solid #ff5252;
-        }
-
-        .success {
-            background: rgba(0, 255, 136, 0.15);
-            color: #00ff88;
-            border: 2px solid rgba(0, 255, 136, 0.3);
-            border-left: 6px solid #00ff88;
-        }
-
-        .result-section {
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            border: 2px solid rgba(0, 255, 136, 0.3);
-            border-radius: 20px;
-            padding: 35px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-            display: none;
-            margin-top: 30px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .result-section::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #00ff88, #00cc6a, #00ff88);
-            border-radius: 20px 20px 0 0;
-        }
-
-        .result-title {
-            font-size: 1.4rem;
-            color: #00ff88;
-            margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-weight: 600;
-        }
-
-        .code-container {
-            position: relative;
-            background: rgba(0, 0, 0, 0.6);
-            border: 2px solid rgba(0, 255, 136, 0.2);
-            border-radius: 15px;
-            margin-bottom: 30px;
-            overflow: hidden;
-        }
-
-        .code-header {
-            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-            padding: 15px 20px;
+        .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 14px;
-            color: #000;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-title {
+            font-size: 1.2rem;
+            color: var(--primary-color);
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .copy-btn {
-            background: rgba(0, 0, 0, 0.8);
-            color: #00ff88;
-            border: 1px solid rgba(0, 255, 136, 0.5);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--text-dark);
+            border: none;
             border-radius: 8px;
             padding: 8px 16px;
             font-size: 13px;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .copy-btn:hover {
-            background: rgba(0, 255, 136, 0.1);
-            border-color: #00ff88;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
         }
 
-        .code-content {
-            padding: 25px;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.8;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            overflow-x: auto;
-            color: #e0e0e0;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .preview-container {
-            border: 2px solid rgba(0, 255, 136, 0.2);
-            border-radius: 15px;
-            padding: 25px;
-            background: rgba(0, 0, 0, 0.3);
-            min-height: 120px;
-        }
-
-        .stats {
+        .rich-text-toolbar {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 10px 10px 0 0;
+            padding: 10px;
             display: flex;
-            gap: 15px;
-            margin: 20px 0;
             flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: -1px;
         }
 
-        .stat-item {
-            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-            color: #000;
-            padding: 10px 18px;
-            border-radius: 25px;
-            font-size: 14px;
-            font-weight: 600;
-            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.3);
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 30px;
-            color: #00ff88;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 24px;
-            height: 24px;
-            border: 3px solid rgba(0, 255, 136, 0.3);
-            border-top: 3px solid #00ff88;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 12px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .info-box {
-            background: rgba(0, 255, 136, 0.1);
-            border: 2px solid rgba(0, 255, 136, 0.3);
-            border-radius: 15px;
-            padding: 20px;
-            margin-top: 25px;
-        }
-
-        .info-title {
-            color: #00ff88;
-            font-weight: 600;
-            margin-bottom: 12px;
-            font-size: 16px;
-        }
-
-        .info-list {
-            color: #e0e0e0;
-            line-height: 1.6;
-        }
-
-        .info-list ol {
-            padding-left: 20px;
-        }
-
-        .info-list li {
-            margin-bottom: 5px;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .main-container {
-                padding: 10px 0;
-            }
-            
-            .converter-card {
-                padding: 25px 20px;
-            }
-            
-            .converter-grid {
-                gap: 20px;
-            }
-            
-            .stats {
-                gap: 10px;
-            }
-            
-            .stat-item {
-                font-size: 12px;
-                padding: 8px 14px;
-            }
-            
-            .textarea-field {
-                min-height: 150px;
-            }
-            
-            .paste-btn {
-                padding: 6px 10px;
-                font-size: 11px;
-                top: 10px;
-                right: 10px;
-            }
-            
-            .input-field {
-                padding-right: 80px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .code-content {
-                font-size: 11px;
-                padding: 20px;
-            }
-            
-            .converter-card {
-                padding: 20px 15px;
-            }
-            
-            .header {
-                padding: 25px 20px;
-            }
-            
-            .paste-btn {
-                padding: 5px 8px;
-                font-size: 10px;
-                top: 8px;
-                right: 8px;
-            }
-            
-            .input-field {
-                padding-right: 70px;
-            }
-        }
-
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
+        .toolbar-btn {
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            color: var(--primary-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 35px;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #00ff88, #00cc6a);
-            border-radius: 4px;
+        .toolbar-btn:hover {
+            background: rgba(0, 255, 136, 0.2);
+            border-color: var(--primary-color);
         }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, #00cc6a, #00ff88);
+        .toolbar-btn.active {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--text-dark);
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            background: var(--border-color);
+            margin: 0 5px;
+        }
+
+        .rich-text-editor {
+            width: 100%;
+            flex: 1;
+            min-height: 400px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 0 0 10px 10px;
+            background: #f1f1f1; 
+            color: #333; 
+            font-size: 14px;
+            line-height: 1.6;
+            overflow: auto;
+        }
+
+        .rich-text-editor:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        
+        .rich-text-editor p { margin: 0.5em 0; }
+        .rich-text-editor a { color: #0066cc; text-decoration: underline; }
+
+        .html-editor {
+            width: 100%;
+            flex: 1;
+            min-height: 400px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: #0e0e0e; 
+            color: var(--text-muted);
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            overflow: auto;
+        }
+
+        @media (max-width: 900px) {
+            .editor-container {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="main-container">
+    <div class="container">
         <div class="header">
-            <h1>🎮 Game+ YouTube Embed & HTML Converter</h1>
-            <p>YouTube videolarını responsive embed'e çevir veya HTML'deki embed'leri optimize et</p>
+            <h1>✨ Temiz HTML ↔ Rich Text Dönüştürücü</h1>
+            <p>Zengin metinden temiz HTML'e ve YouTube linklerini gömülü oynatıcılara çevirin</p>
         </div>
 
-        <div class="converter-grid">
-            <!-- URL to Embed Converter -->
-            <div class="converter-card">
-                <h2 class="card-title">
-                    🔗 YouTube URL → Responsive Embed
-                </h2>
-                
-                <div class="input-group">
-                    <label for="youtube-url">YouTube Video URL'sini girin:</label>
-                    <div class="input-wrapper">
-                        <input type="url" 
-                               id="youtube-url" 
-                               class="input-field"
-                               placeholder="https://www.youtube.com/watch?v=QdBZY2fkU-0">
-                        <button class="paste-btn" onclick="pasteToInput('youtube-url')">📋 Yapıştır</button>
+        <div class="converter-section">
+            <div class="editor-container">
+                <div class="editor-panel">
+                    <div class="panel-header">
+                        <h3 class="panel-title"><span>📝</span> Zengin Metin Editörü</h3>
+                        <button class="copy-btn" onclick="copyRichTextContent(event)">📋 Zengin Metni Kopyala</button>
+                    </div>
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <div class="rich-text-toolbar">
+                            <button class="toolbar-btn" data-command="bold" onclick="formatDoc('bold')" title="Kalın"><strong>B</strong></button>
+                            <button class="toolbar-btn" data-command="italic" onclick="formatDoc('italic')" title="İtalik"><em>I</em></button>
+                            <button class="toolbar-btn" data-command="underline" onclick="formatDoc('underline')" title="Altı Çizili"><u>U</u></button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" data-command="h1" onclick="toggleBlockFormat('h1')" title="Başlık 1">H1</button>
+                            <button class="toolbar-btn" data-command="h2" onclick="toggleBlockFormat('h2')" title="Başlık 2">H2</button>
+                            <button class="toolbar-btn" data-command="p" onclick="toggleBlockFormat('p')" title="Paragraf">P</button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" data-command="insertUnorderedList" onclick="formatDoc('insertUnorderedList')" title="Madde İşaretli Liste">•</button>
+                            <button class="toolbar-btn" data-command="insertOrderedList" onclick="formatDoc('insertOrderedList')" title="Numaralı Liste">1.</button>
+                            <div class="toolbar-separator"></div>
+                            <button class="toolbar-btn" data-command="createLink" onclick="createLink()" title="Link Ekle">🔗</button>
+                             <button class="toolbar-btn" data-command="removeFormat" onclick="formatDoc('removeFormat'); richTextToHtml();" title="Formatı Temizle">✕</button>
+                        </div>
+                        <div class="rich-text-editor" contenteditable="true" id="richtext-editor"></div>
                     </div>
                 </div>
-                
-                <button class="convert-btn" onclick="convertUrl()">
-                    🚀 Responsive Embed Oluştur
-                </button>
-                
-                <div class="message error" id="url-error"></div>
-                <div class="message success" id="url-success"></div>
-            </div>
 
-            <!-- HTML Fixer -->
-            <div class="converter-card">
-                <h2 class="card-title">
-                    🔧 HTML YouTube Embed Optimizer
-                </h2>
-                
-                <div class="input-group">
-                    <label for="html-input">HTML kodunuzu yapıştırın (büyük dosyalar desteklenir):</label>
-                    <div class="input-wrapper">
-                        <textarea id="html-input" 
-                                  class="input-field textarea-field"
-                                  placeholder='<iframe src="https://www.youtube.com/embed/..." width="560" height="315"></iframe>
-
-Buraya tüm HTML içeriğinizi yapıştırabilirsiniz.
-Tool otomatik olarak YouTube embed'leri bulup responsive hale getirecek.'></textarea>
-                        <button class="paste-btn" onclick="pasteToInput('html-input')" style="top: 20px;">📋 Yapıştır</button>
+                <div class="editor-panel">
+                    <div class="panel-header">
+                        <h3 class="panel-title"><span>🏷️</span> Temiz HTML Kodu</h3>
+                        <button class="copy-btn" onclick="copyHtmlOutput(event)">📋 HTML'i Kopyala</button>
                     </div>
-                </div>
-                
-                <button class="convert-btn" onclick="fixHtmlEmbeds()">
-                    ⚡ YouTube Embed'leri Optimize Et
-                </button>
-                
-                <div class="message error" id="html-error"></div>
-                <div class="message success" id="html-success"></div>
-            </div>
-        </div>
-
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            İşleniyor...
-        </div>
-
-        <div class="result-section" id="result-section">
-            <div class="result-title" id="result-title">
-                📋 Sonuç
-            </div>
-            
-            <div class="stats" id="stats"></div>
-            
-            <div class="code-container">
-                <div class="code-header">
-                    <span>🎯 Optimize Edilmiş HTML Kodu</span>
-                    <button class="copy-btn" onclick="copyResult()">📋 Tümünü Kopyala</button>
-                </div>
-                <div class="code-content" id="result-code"></div>
-            </div>
-            
-            <div class="result-title">
-                💡 Test Etmek İçin
-            </div>
-            <div class="info-box">
-                <div class="info-title">Kodu nasıl test ederim?</div>
-                <div class="info-list">
-                    <ol>
-                        <li>Yukarıdaki kodu kopyala</li>
-                        <li>Bir HTML dosyası oluştur (örn: test.html)</li>
-                        <li>Kodu dosyaya yapıştır</li>
-                        <li>Tarayıcıda aç ve responsive çalışıp çalışmadığını kontrol et</li>
-                        <li>Farklı ekran boyutlarında test et</li>
-                    </ol>
+                    <textarea class="html-editor" id="html-output-editor" placeholder="Temiz HTML kodunuz burada görünecek..." readonly></textarea>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        let currentResult = '';
+        const richTextEditor = document.getElementById('richtext-editor');
+        const htmlOutputEditor = document.getElementById('html-output-editor');
+        let debounceTimer;
 
-        function extractVideoId(url) {
-            // Daha kapsamlı regex patterns
+        function extractYouTubeVideoId(url) {
+            if (!url) return null;
             const patterns = [
-                /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/,
-                /youtube\.com\/embed\/([^"&?\/\s]{11})/,
-                /youtube\.com\/v\/([^"&?\/\s]{11})/,
-                /youtube\.com\/watch\?v=([^"&?\/\s]{11})/,
-                /youtu\.be\/([^"&?\/\s]{11})/
+                /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/,
             ];
-            
             for (let pattern of patterns) {
                 const match = url.match(pattern);
                 if (match && match[1]) return match[1];
@@ -592,342 +282,194 @@ Tool otomatik olarak YouTube embed'leri bulup responsive hale getirecek.'></text
             return null;
         }
 
-        function createResponsiveEmbed(videoId) {
-            return `<div style="width: 100%; aspect-ratio: 16/9; background: #000; overflow: hidden; border-radius: 12px; margin: 1em 0;">
-  <iframe title="YouTube video player" src="https://www.youtube.com/embed/${videoId}" width="560" height="315" frameborder="0" allowfullscreen="allowfullscreen" style="width: 100%; height: 100%; object-fit: contain; display: block; background: #000;"></iframe>
-</div>`;
+        function createYouTubeEmbedHTML(videoId) {
+            return `<!-- Responsive YouTube Embed Başlangıcı -->
+<div style="width: 100%; aspect-ratio: 16/9; background: #000; overflow: hidden; border-radius: 12px; margin: 1em 0;"><iframe style="width: 100%; height: 100%; object-fit: contain; display: block; background: #000;" title="YouTube video player" src="https://www.youtube.com/embed/${videoId}" width="560" height="315" frameborder="0" allowfullscreen="allowfullscreen"></iframe></div>
+<!-- Responsive YouTube Embed Sonu -->`;
+        }
+        
+        function formatDoc(command, value = null) {
+            document.execCommand(command, false, value);
+            richTextEditor.focus();
+            richTextToHtml(); 
         }
 
-        function showMessage(elementId, message, isError = false) {
-            const element = document.getElementById(elementId);
-            if (!element) return;
+        function toggleBlockFormat(tag) {
+            document.execCommand('formatBlock', false, `<${tag}>`);
+            richTextToHtml(); 
+        }
+        
+        function createLink() {
+            const url = prompt('Link URL\'sini girin:', 'https://');
+            if (url) formatDoc('createLink', url);
+        }
+        
+        function cleanHtmlForOutput(inputHtml) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(`<body>${inputHtml}</body>`, 'text/html');
+            const body = doc.body;
+
+            function processNode(node) {
+                // Process child nodes first (post-order traversal)
+                Array.from(node.childNodes).forEach(processNode);
+                
+                if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+                const el = node;
+
+                // **NEW**: Smart Italic/Bold Conversion based on style attribute
+                if (el.hasAttribute('style')) {
+                    if (el.style.fontStyle === 'italic') {
+                        const em = doc.createElement('em');
+                        while (el.firstChild) em.appendChild(el.firstChild);
+                        el.innerHTML = '';
+                        el.appendChild(em);
+                    }
+                    if (el.style.fontWeight === 'bold' || parseInt(el.style.fontWeight, 10) >= 700) {
+                         const strong = doc.createElement('strong');
+                         while (el.firstChild) strong.appendChild(el.firstChild);
+                         el.innerHTML = '';
+                         el.appendChild(strong);
+                    }
+                }
+                
+                // Unwrap all SPANs
+                if (el.tagName === 'SPAN') {
+                    while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+                    el.remove();
+                    return;
+                }
+                
+                // Convert b/i tags to strong/em
+                if (el.tagName === 'B') {
+                    const strong = doc.createElement('strong');
+                    while(el.firstChild) strong.appendChild(el.firstChild);
+                    el.parentNode.replaceChild(strong, el);
+                }
+                if (el.tagName === 'I') {
+                    const em = doc.createElement('em');
+                    while(el.firstChild) em.appendChild(el.firstChild);
+                    el.parentNode.replaceChild(em, el);
+                }
+
+                // Remove all attributes except for a specific whitelist
+                const allowedAttributes = { 'a': ['href', 'title'], 'img': ['src', 'alt', 'title'] };
+                const attrsToRemove = Array.from(el.attributes)
+                    .map(attr => attr.name.toLowerCase())
+                    .filter(name => !(allowedAttributes[el.tagName.toLowerCase()]?.includes(name)));
+                attrsToRemove.forEach(name => el.removeAttribute(name));
+            }
             
-            element.textContent = message;
-            element.className = `message ${isError ? 'error' : 'success'}`;
-            element.style.display = 'block';
+            processNode(body);
             
-            // Diğer mesajları gizle
-            const otherMessages = document.querySelectorAll('.message');
-            otherMessages.forEach(msg => {
-                if (msg.id !== elementId) {
-                    msg.style.display = 'none';
+            body.querySelectorAll('p').forEach(p => {
+                const text = p.textContent.trim();
+                const videoId = extractYouTubeVideoId(text);
+                if (videoId && text === p.innerText.trim()) {
+                    const embedHtml = createYouTubeEmbedHTML(videoId);
+                    const embedFragment = document.createRange().createContextualFragment(embedHtml);
+                    p.parentNode.replaceChild(embedFragment, p);
                 }
             });
-        }
 
-        function hideAllMessages() {
-            document.querySelectorAll('.message').forEach(msg => {
-                msg.style.display = 'none';
+            body.querySelectorAll('p, h1, h2, h3, div').forEach(el => {
+                if (!el.innerHTML.trim().replace(/<br>/gi, '')) {
+                    el.remove();
+                }
             });
+
+            let cleanedHtml = body.innerHTML;
+            cleanedHtml = cleanedHtml.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
+            cleanedHtml = cleanedHtml.replace(/&nbsp;/g, ' ');
+
+            return cleanedHtml.trim();
+        }
+        
+        function richTextToHtml() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const richHTML = richTextEditor.innerHTML;
+                const cleanedOutputHTML = cleanHtmlForOutput(richHTML);
+                htmlOutputEditor.value = cleanedOutputHTML;
+            }, 350);
         }
 
-        function showLoading(show = true) {
-            const loadingEl = document.getElementById('loading');
-            if (loadingEl) {
-                loadingEl.style.display = show ? 'block' : 'none';
-            }
-        }
+        richTextEditor.addEventListener('input', richTextToHtml);
 
-        function showResult(title, code, stats = []) {
-            currentResult = code;
+        richTextEditor.addEventListener('paste', (event) => {
+            event.preventDefault();
+            let pasteData = event.clipboardData || window.clipboardData;
+            let pastedHtml = pasteData.getData('text/html');
             
-            const titleEl = document.getElementById('result-title');
-            const codeEl = document.getElementById('result-code');
-            const statsEl = document.getElementById('stats');
-            const resultEl = document.getElementById('result-section');
-            
-            if (titleEl) titleEl.innerHTML = title;
-            if (codeEl) codeEl.textContent = code;
-            
-            // İstatistikleri göster
-            if (statsEl) {
-                statsEl.innerHTML = stats.map(stat => 
-                    `<div class="stat-item">${stat}</div>`
-                ).join('');
+            if (!pastedHtml || pastedHtml.trim() === '') {
+                 pastedHtml = pasteData.getData('text/plain').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, '<br>');
             }
             
-            if (resultEl) {
-                resultEl.style.display = 'block';
-                resultEl.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
-                });
-            }
-        }
-
-        function convertUrl() {
-            const urlInput = document.getElementById('youtube-url');
-            if (!urlInput) return;
-            
-            const url = urlInput.value.trim();
-            
-            hideAllMessages();
-            
-            if (!url) {
-                showMessage('url-error', '⚠️ Lütfen bir YouTube URL\'si girin!', true);
-                return;
-            }
-            
-            showLoading(true);
-            
-            setTimeout(() => {
-                try {
-                    const videoId = extractVideoId(url);
-                    
-                    if (!videoId) {
-                        showLoading(false);
-                        showMessage('url-error', '❌ Geçersiz YouTube URL\'si! Desteklenen formatlar: youtube.com/watch?v=, youtu.be/, youtube.com/embed/', true);
-                        return;
-                    }
-                    
-                    const embedCode = createResponsiveEmbed(videoId);
-                    
-                    showLoading(false);
-                    showMessage('url-success', `✅ Video ID: ${videoId} için responsive embed oluşturuldu!`);
-                    showResult(
-                        '🎬 Responsive YouTube Embed',
-                        embedCode,
-                        [`Video ID: ${videoId}`, 'Tam Responsive', '16:9 Aspect Ratio', 'Mobil Uyumlu']
-                    );
-                } catch (error) {
-                    showLoading(false);
-                    showMessage('url-error', '❌ URL işlenirken hata oluştu: ' + error.message, true);
-                }
-            }, 800);
-        }
-
-        function fixHtmlEmbeds() {
-            const htmlInput = document.getElementById('html-input');
-            if (!htmlInput) return;
-            
-            const html = htmlInput.value.trim();
-            
-            hideAllMessages();
-            
-            if (!html) {
-                showMessage('html-error', '⚠️ Lütfen HTML kodunuzu girin!', true);
-                return;
-            }
-            
-            showLoading(true);
-            
-            setTimeout(() => {
-                try {
-                    let fixedHtml = html;
-                    let embedsFound = 0;
-                    let embedsFixed = 0;
-                    
-                    // Daha kapsamlı iframe regex'i
-                    const iframeRegex = /<iframe[^>]*src=["']([^"']*(?:youtube\.com\/embed|youtu\.be)[^"']*)["'][^>]*>.*?<\/iframe>/gis;
-                    
-                    // Ayrıca self-closing iframe'leri de yakala
-                    const selfClosingIframeRegex = /<iframe[^>]*src=["']([^"']*(?:youtube\.com\/embed|youtu\.be)[^"']*)["'][^>]*\/>/gis;
-                    
-                    // Her iki pattern için arama yap
-                    const matches1 = [...html.matchAll(iframeRegex)];
-                    const matches2 = [...html.matchAll(selfClosingIframeRegex)];
-                    const allMatches = [...matches1, ...matches2];
-                    
-                    embedsFound = allMatches.length;
-                    
-                    if (embedsFound === 0) {
-                        showLoading(false);
-                        showMessage('html-error', '❌ HTML içinde YouTube embed bulunamadı! iframe src="...youtube.com/embed..." formatında olduğundan emin olun.', true);
-                        return;
-                    }
-                    
-                    // Her match için işlem yap
-                    allMatches.forEach(match => {
-                        const fullIframe = match[0];
-                        const src = match[1];
-                        const videoId = extractVideoId(src);
-                        
-                        if (videoId) {
-                            const responsiveEmbed = createResponsiveEmbed(videoId);
-                            fixedHtml = fixedHtml.replace(fullIframe, responsiveEmbed);
-                            embedsFixed++;
-                        }
-                    });
-                    
-                    if (embedsFixed === 0) {
-                        showLoading(false);
-                        showMessage('html-error', '❌ Geçerli YouTube video ID\'si bulunamadı!', true);
-                        return;
-                    }
-                    
-                    showLoading(false);
-                    showMessage('html-success', `✅ ${embedsFixed}/${embedsFound} YouTube embed başarıyla optimize edildi!`);
-                    showResult(
-                        '🔧 Optimize Edilmiş HTML',
-                        fixedHtml,
-                        [
-                            `${embedsFound} Embed Bulundu`,
-                            `${embedsFixed} Embed Optimize Edildi`,
-                            'Tam Responsive',
-                            'Mobil Uyumlu',
-                            `${Math.round(fixedHtml.length / 1024)} KB`
-                        ]
-                    );
-                    
-                } catch (error) {
-                    showLoading(false);
-                    showMessage('html-error', '❌ HTML işlenirken hata oluştu: ' + error.message, true);
-                }
-            }, 1000);
-        }
-
-        function copyResult() {
-            if (!currentResult) return;
-            
-            const copyBtn = document.querySelector('.copy-btn');
-            if (!copyBtn) return;
-            
-            // Güvenli kopyalama fonksiyonu
-            function safeCopy(text) {
-                // Modern Clipboard API'yi dene
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    return navigator.clipboard.writeText(text);
-                }
-                
-                // Fallback metodu
-                return new Promise((resolve, reject) => {
-                    try {
-                        const textArea = document.createElement('textarea');
-                        textArea.value = text;
-                        textArea.style.position = 'fixed';
-                        textArea.style.left = '-999999px';
-                        textArea.style.top = '-999999px';
-                        document.body.appendChild(textArea);
-                        textArea.focus();
-                        textArea.select();
-                        
-                        const successful = document.execCommand('copy');
-                        document.body.removeChild(textArea);
-                        
-                        if (successful) {
-                            resolve();
-                        } else {
-                            reject(new Error('Copy command failed'));
-                        }
-                    } catch (err) {
-                        reject(err);
-                    }
-                });
-            }
-            
-            safeCopy(currentResult)
-                .then(() => {
-                    const originalText = copyBtn.textContent;
-                    copyBtn.textContent = '✅ Kopyalandı!';
-                    copyBtn.style.background = 'rgba(0, 255, 136, 0.2)';
-                    copyBtn.style.color = '#00ff88';
-                    
-                    setTimeout(() => {
-                        copyBtn.textContent = originalText;
-                        copyBtn.style.background = 'rgba(0, 0, 0, 0.8)';
-                        copyBtn.style.color = '#00ff88';
-                    }, 2500);
-                })
-                .catch((err) => {
-                    console.error('Kopyalama hatası:', err);
-                    const originalText = copyBtn.textContent;
-                    copyBtn.textContent = '❌ Hata!';
-                    copyBtn.style.background = 'rgba(255, 82, 82, 0.2)';
-                    copyBtn.style.color = '#ff5252';
-                    
-                    setTimeout(() => {
-                        copyBtn.textContent = originalText;
-                        copyBtn.style.background = 'rgba(0, 0, 0, 0.8)';
-                        copyBtn.style.color = '#00ff88';
-                    }, 2500);
-                });
-        }
-
-        function pasteToInput(inputId) {
-            const input = document.getElementById(inputId);
-            if (!input) return;
-            
-            const pasteBtn = input.parentElement.querySelector('.paste-btn');
-            
-            // Güvenli yapıştırma fonksiyonu
-            function safePaste() {
-                // Modern Clipboard API'yi dene
-                if (navigator.clipboard && navigator.clipboard.readText) {
-                    return navigator.clipboard.readText();
-                }
-                
-                // Fallback - kullanıcıdan manuel yapıştırma iste
-                return new Promise((resolve, reject) => {
-                    const userText = prompt('Clipboard API desteklenmiyor. Lütfen içeriği buraya yapıştırın:');
-                    if (userText !== null) {
-                        resolve(userText);
-                    } else {
-                        reject(new Error('User cancelled'));
-                    }
-                });
-            }
-            
-            safePaste()
-                .then((text) => {
-                    if (text) {
-                        input.value = text;
-                        input.focus();
-                        hideAllMessages();
-                        
-                        // Başarı feedback'i
-                        if (pasteBtn) {
-                            const originalText = pasteBtn.textContent;
-                            pasteBtn.textContent = '✅ Yapıştırıldı!';
-                            pasteBtn.style.background = 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)';
-                            
-                            setTimeout(() => {
-                                pasteBtn.textContent = originalText;
-                                pasteBtn.style.background = 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)';
-                            }, 2000);
-                        }
-                    }
-                })
-                .catch((err) => {
-                    console.error('Yapıştırma hatası:', err);
-                    if (pasteBtn && err.message !== 'User cancelled') {
-                        const originalText = pasteBtn.textContent;
-                        pasteBtn.textContent = '❌ Hata!';
-                        pasteBtn.style.background = 'linear-gradient(135deg, #ff5252 0%, #f44336 100%)';
-                        
-                        setTimeout(() => {
-                            pasteBtn.textContent = originalText;
-                            pasteBtn.style.background = 'linear-gradient(135deg, #00ff88 0%, #00cc6a 100%)';
-                        }, 2000);
-                    }
-                });
-        }
-
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', function() {
-            // Enter tuşu desteği
-            const urlInput = document.getElementById('youtube-url');
-            if (urlInput) {
-                urlInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        convertUrl();
-                    }
-                });
-                
-                urlInput.addEventListener('input', hideAllMessages);
-            }
-
-            const htmlInput = document.getElementById('html-input');
-            if (htmlInput) {
-                htmlInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        e.preventDefault();
-                        fixHtmlEmbeds();
-                    }
-                });
-                
-                htmlInput.addEventListener('input', hideAllMessages);
-            }
+            document.execCommand('insertHTML', false, pastedHtml);
+            setTimeout(richTextToHtml, 50); 
         });
+        
+        function fallbackCopy(text, button) {
+            const originalText = button.textContent;
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.top = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                button.textContent = '✅ Kopyalandı!';
+            } catch (err) {
+                console.error('Fallback kopyalama başarısız oldu', err);
+                button.textContent = '❌ Hata';
+            }
+            document.body.removeChild(textArea);
+            setTimeout(() => { button.textContent = originalText; }, 2000);
+        }
+
+        function copyHtmlOutput(event) { 
+            const textToCopy = htmlOutputEditor.value;
+            const btn = event.target;
+            const originalText = btn.textContent;
+            if (!navigator.clipboard) {
+                fallbackCopy(textToCopy, btn);
+                return;
+            }
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                btn.textContent = '✅ Kopyalandı!';
+                setTimeout(() => { btn.textContent = originalText; }, 2000);
+            }).catch(err => {
+                console.warn('Clipboard API hatası, yedeğe geçiliyor.', err);
+                fallbackCopy(textToCopy, btn);
+            });
+        }
+        
+        function copyRichTextContent(event) { 
+            const textToCopy = htmlOutputEditor.value;
+            const btn = event.target;
+            const originalText = btn.textContent;
+            if (!navigator.clipboard) {
+                fallbackCopy(textToCopy, btn);
+                return;
+            }
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                 btn.textContent = '✅ Kopyalandı!';
+                 setTimeout(() => { btn.textContent = originalText; }, 2000);
+            }).catch(err => {
+                console.warn('Clipboard API hatası, yedeğe geçiliyor.', err);
+                fallbackCopy(textToCopy, btn);
+            });
+        }
+
+        function initializeEditor() {
+            const exampleHTML = `<h2><em>Derimod Proje Devir Dokümanı</em></h2><p>İçerik...</p><p>https://www.youtube.com/watch?v=t0uYhTLPGLQ</p>`;
+            richTextEditor.innerHTML = exampleHTML;
+            richTextToHtml(); 
+        }
+
+        initializeEditor();
     </script>
 </body>
 </html>
