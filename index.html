@@ -491,8 +491,9 @@
         }
 
         function initializeEditor() {
-            const exampleHTML = `<h2><em>Derimod Proje Devir Dokümanı</em></h2><p>Bu alana metin yapıştırabilir veya yazabilirsiniz. Sade metin yapıştırdığınızda, metnin başlık etiketlerinin içine girmesi engellenecektir.</p><p>Ayrıca, bir YouTube linkini tek başına bir paragrafa yapıştırırsanız otomatik olarak gömülü oynatıcıya dönüşür:</p><p>https://www.youtube.com/watch?v=t0uYhTLPGLQ</p>`;
-            richTextEditor.innerHTML = exampleHTML;
+            // Set the initial content to empty
+            richTextEditor.innerHTML = '';
+            // Update the HTML output view
             richTextToHtml(); 
         }
 
