@@ -300,6 +300,7 @@
         }
         
         function createLink() {
+            // Using a simple prompt. For a real app, a custom modal would be better.
             const url = prompt('Link URL\'sini girin:', 'https://');
             if (url) formatDoc('createLink', url);
         }
@@ -317,7 +318,7 @@
 
                 const el = node;
 
-                // **NEW**: Smart Italic/Bold Conversion based on style attribute
+                // Smart Italic/Bold Conversion based on style attribute from pasted content
                 if (el.hasAttribute('style')) {
                     if (el.style.fontStyle === 'italic') {
                         const em = doc.createElement('em');
@@ -333,14 +334,14 @@
                     }
                 }
                 
-                // Unwrap all SPANs
+                // Unwrap all SPANs, as they often carry unwanted styles
                 if (el.tagName === 'SPAN') {
                     while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
                     el.remove();
                     return;
                 }
                 
-                // Convert b/i tags to strong/em
+                // Convert b/i tags to modern strong/em
                 if (el.tagName === 'B') {
                     const strong = doc.createElement('strong');
                     while(el.firstChild) strong.appendChild(el.firstChild);
@@ -362,6 +363,7 @@
             
             processNode(body);
             
+            // Find paragraphs that are just a YouTube link and replace them with an embed
             body.querySelectorAll('p').forEach(p => {
                 const text = p.textContent.trim();
                 const videoId = extractYouTubeVideoId(text);
@@ -372,6 +374,7 @@
                 }
             });
 
+            // Remove empty block elements that might be left over after cleaning
             body.querySelectorAll('p, h1, h2, h3, div').forEach(el => {
                 if (!el.innerHTML.trim().replace(/<br>/gi, '')) {
                     el.remove();
@@ -379,7 +382,9 @@
             });
 
             let cleanedHtml = body.innerHTML;
+            // Collapse multiple line breaks into one
             cleanedHtml = cleanedHtml.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
+            // Replace non-breaking spaces with regular spaces
             cleanedHtml = cleanedHtml.replace(/&nbsp;/g, ' ');
 
             return cleanedHtml.trim();
@@ -396,16 +401,37 @@
 
         richTextEditor.addEventListener('input', richTextToHtml);
 
+        // *** FIXED PASTE HANDLER ***
+        // This handler now correctly processes plain text to prevent it from being injected into existing H2 tags.
         richTextEditor.addEventListener('paste', (event) => {
+            // Prevent the browser's default paste behavior, which can be messy.
             event.preventDefault();
-            let pasteData = event.clipboardData || window.clipboardData;
+            const pasteData = event.clipboardData || window.clipboardData;
             let pastedHtml = pasteData.getData('text/html');
             
+            // If clipboard does not contain rich HTML, process it as plain text.
             if (!pastedHtml || pastedHtml.trim() === '') {
-                 pastedHtml = pasteData.getData('text/plain').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, '<br>');
+                const plainText = pasteData.getData('text/plain');
+                if (plainText) {
+                    // Sanitize the text to be safely injected as HTML content.
+                    const sanitizedText = plainText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    // **THE FIX**: Split text by newlines and wrap each line in a <p> tag.
+                    // This ensures pasted plain text creates new paragraphs instead of inheriting the current block's format (like H2).
+                    pastedHtml = sanitizedText.split('\n').map(line => {
+                        // For an empty line, use <br> inside the paragraph to make it visible.
+                        return `<p>${line.trim() === '' ? '<br>' : line}</p>`;
+                    }).join('');
+                } else {
+                    pastedHtml = ''; // No data to paste.
+                }
             }
             
-            document.execCommand('insertHTML', false, pastedHtml);
+            // Insert the cleaned or processed HTML into the editor.
+            if (pastedHtml) {
+                document.execCommand('insertHTML', false, pastedHtml);
+            }
+            
+            // Update the HTML output after a short delay to allow the DOM to update.
             setTimeout(richTextToHtml, 50); 
         });
         
@@ -447,6 +473,7 @@
         }
         
         function copyRichTextContent(event) { 
+            // This function should copy the cleaned HTML, which is the desired "rich text" source.
             const textToCopy = htmlOutputEditor.value;
             const btn = event.target;
             const originalText = btn.textContent;
@@ -464,11 +491,12 @@
         }
 
         function initializeEditor() {
-            const exampleHTML = `<h2><em>Derimod Proje Devir Dokümanı</em></h2><p>İçerik...</p><p>https://www.youtube.com/watch?v=t0uYhTLPGLQ</p>`;
+            const exampleHTML = `<h2><em>Derimod Proje Devir Dokümanı</em></h2><p>Bu alana metin yapıştırabilir veya yazabilirsiniz. Sade metin yapıştırdığınızda, metnin başlık etiketlerinin içine girmesi engellenecektir.</p><p>Ayrıca, bir YouTube linkini tek başına bir paragrafa yapıştırırsanız otomatik olarak gömülü oynatıcıya dönüşür:</p><p>https://www.youtube.com/watch?v=t0uYhTLPGLQ</p>`;
             richTextEditor.innerHTML = exampleHTML;
             richTextToHtml(); 
         }
 
+        // Initialize the editor with example content when the page loads.
         initializeEditor();
     </script>
 </body>
