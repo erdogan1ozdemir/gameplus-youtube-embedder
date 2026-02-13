@@ -300,7 +300,6 @@
         }
         
         function createLink() {
-            // Using a simple prompt. For a real app, a custom modal would be better.
             const url = prompt('Link URL\'sini girin:', 'https://');
             if (url) formatDoc('createLink', url);
         }
@@ -311,14 +310,12 @@
             const body = doc.body;
 
             function processNode(node) {
-                // Process child nodes first (post-order traversal)
                 Array.from(node.childNodes).forEach(processNode);
                 
                 if (node.nodeType !== Node.ELEMENT_NODE) return;
 
                 const el = node;
 
-                // Smart Italic/Bold Conversion based on style attribute from pasted content
                 if (el.hasAttribute('style')) {
                     if (el.style.fontStyle === 'italic') {
                         const em = doc.createElement('em');
@@ -334,14 +331,12 @@
                     }
                 }
                 
-                // Unwrap all SPANs, as they often carry unwanted styles
                 if (el.tagName === 'SPAN') {
                     while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
                     el.remove();
                     return;
                 }
                 
-                // Convert b/i tags to modern strong/em
                 if (el.tagName === 'B') {
                     const strong = doc.createElement('strong');
                     while(el.firstChild) strong.appendChild(el.firstChild);
@@ -353,7 +348,6 @@
                     el.parentNode.replaceChild(em, el);
                 }
 
-                // Remove all attributes except for a specific whitelist
                 const allowedAttributes = { 'a': ['href', 'title'], 'img': ['src', 'alt', 'title'] };
                 const attrsToRemove = Array.from(el.attributes)
                     .map(attr => attr.name.toLowerCase())
@@ -362,6 +356,14 @@
             }
             
             processNode(body);
+
+            // =====================================================
+            // BUG FIX v2: Ardışık aynı türdeki listeleri birleştir.
+            // Aralarında paragraf/div/h2 gibi içerik olsa bile,
+            // aradaki içeriği önceki <li>'nin içine taşıyıp
+            // listeleri tek bir <ol> veya <ul> altında birleştirir.
+            // =====================================================
+            mergeAdjacentLists(body);
             
             // Find paragraphs that are just a YouTube link and replace them with an embed
             body.querySelectorAll('p').forEach(p => {
@@ -374,7 +376,7 @@
                 }
             });
 
-            // Remove empty block elements that might be left over after cleaning
+            // Remove empty block elements
             body.querySelectorAll('p, h1, h2, h3, div').forEach(el => {
                 if (!el.innerHTML.trim().replace(/<br>/gi, '')) {
                     el.remove();
@@ -382,12 +384,115 @@
             });
 
             let cleanedHtml = body.innerHTML;
-            // Collapse multiple line breaks into one
             cleanedHtml = cleanedHtml.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
-            // Replace non-breaking spaces with regular spaces
             cleanedHtml = cleanedHtml.replace(/&nbsp;/g, ' ');
 
             return cleanedHtml.trim();
+        }
+
+        /**
+         * Ardışık aynı türdeki liste elemanlarını (<ol>+<ol> veya <ul>+<ul>) birleştirir.
+         * 
+         * Senaryo:
+         *   <ol><li>Madde 1</li></ol>
+         *   <p>Açıklama paragrafı...</p>
+         *   <ol><li>Madde 2</li></ol>
+         * 
+         * Sonuç:
+         *   <ol>
+         *     <li>Madde 1<p>Açıklama paragrafı...</p></li>
+         *     <li>Madde 2</li>
+         *   </ol>
+         */
+        function mergeAdjacentLists(container) {
+            const listTags = ['OL', 'UL'];
+
+            let changed = true;
+            while (changed) {
+                changed = false;
+                for (const tag of listTags) {
+                    const lists = Array.from(container.querySelectorAll(tag));
+                    for (const list of lists) {
+                        // Listenin hala DOM'da olup olmadığını kontrol et
+                        if (!list.parentNode) continue;
+
+                        // list'ten sonraki kardeşleri tara,
+                        // aradaki tüm non-list node'ları topla
+                        let cursor = list.nextSibling;
+                        const intermediateNodes = [];
+                        let foundNextList = null;
+
+                        while (cursor) {
+                            // Boş text node veya <br> → topla ve devam et
+                            if (
+                                (cursor.nodeType === Node.TEXT_NODE && cursor.textContent.trim() === '') ||
+                                (cursor.nodeType === Node.ELEMENT_NODE && cursor.tagName === 'BR')
+                            ) {
+                                intermediateNodes.push(cursor);
+                                cursor = cursor.nextSibling;
+                                continue;
+                            }
+
+                            // Aynı türde bir liste bulduk → birleştirme hedefi
+                            if (cursor.nodeType === Node.ELEMENT_NODE && cursor.tagName === tag) {
+                                foundNextList = cursor;
+                                break;
+                            }
+
+                            // Farklı bir element veya anlamlı text → ara içerik olarak topla
+                            if (
+                                cursor.nodeType === Node.ELEMENT_NODE ||
+                                (cursor.nodeType === Node.TEXT_NODE && cursor.textContent.trim() !== '')
+                            ) {
+                                intermediateNodes.push(cursor);
+                                cursor = cursor.nextSibling;
+                                continue;
+                            }
+
+                            // Hiçbirine uymuyorsa dur
+                            break;
+                        }
+
+                        if (!foundNextList) continue;
+
+                        // Aradaki gerçek içerik var mı?
+                        const hasRealContent = intermediateNodes.some(n => {
+                            if (n.nodeType === Node.ELEMENT_NODE && n.tagName !== 'BR') return true;
+                            if (n.nodeType === Node.TEXT_NODE && n.textContent.trim() !== '') return true;
+                            return false;
+                        });
+
+                        if (hasRealContent) {
+                            // Aradaki içeriği, birinci listenin son <li>'sine taşı
+                            const lastLi = list.querySelector('li:last-child');
+                            if (lastLi) {
+                                for (const node of intermediateNodes) {
+                                    lastLi.appendChild(node);
+                                }
+                            } else {
+                                // <li> yoksa (edge case), aradaki node'ları sil
+                                for (const node of intermediateNodes) {
+                                    node.remove();
+                                }
+                            }
+                        } else {
+                            // Sadece boş node'lar → sil
+                            for (const node of intermediateNodes) {
+                                node.remove();
+                            }
+                        }
+
+                        // İkinci listenin tüm çocuklarını birinciye taşı
+                        while (foundNextList.firstChild) {
+                            list.appendChild(foundNextList.firstChild);
+                        }
+                        foundNextList.remove();
+                        changed = true;
+                        break; // DOM değişti, baştan tara
+                    }
+                    if (changed) break; // Dış döngüyü de kır
+                }
+            }
         }
         
         function richTextToHtml() {
@@ -401,37 +506,27 @@
 
         richTextEditor.addEventListener('input', richTextToHtml);
 
-        // *** FIXED PASTE HANDLER ***
-        // This handler now correctly processes plain text to prevent it from being injected into existing H2 tags.
         richTextEditor.addEventListener('paste', (event) => {
-            // Prevent the browser's default paste behavior, which can be messy.
             event.preventDefault();
             const pasteData = event.clipboardData || window.clipboardData;
             let pastedHtml = pasteData.getData('text/html');
             
-            // If clipboard does not contain rich HTML, process it as plain text.
             if (!pastedHtml || pastedHtml.trim() === '') {
                 const plainText = pasteData.getData('text/plain');
                 if (plainText) {
-                    // Sanitize the text to be safely injected as HTML content.
                     const sanitizedText = plainText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                    // **THE FIX**: Split text by newlines and wrap each line in a <p> tag.
-                    // This ensures pasted plain text creates new paragraphs instead of inheriting the current block's format (like H2).
                     pastedHtml = sanitizedText.split('\n').map(line => {
-                        // For an empty line, use <br> inside the paragraph to make it visible.
                         return `<p>${line.trim() === '' ? '<br>' : line}</p>`;
                     }).join('');
                 } else {
-                    pastedHtml = ''; // No data to paste.
+                    pastedHtml = '';
                 }
             }
             
-            // Insert the cleaned or processed HTML into the editor.
             if (pastedHtml) {
                 document.execCommand('insertHTML', false, pastedHtml);
             }
             
-            // Update the HTML output after a short delay to allow the DOM to update.
             setTimeout(richTextToHtml, 50); 
         });
         
@@ -473,7 +568,6 @@
         }
         
         function copyRichTextContent(event) { 
-            // This function should copy the cleaned HTML, which is the desired "rich text" source.
             const textToCopy = htmlOutputEditor.value;
             const btn = event.target;
             const originalText = btn.textContent;
@@ -491,13 +585,10 @@
         }
 
         function initializeEditor() {
-            // Set the initial content to empty
             richTextEditor.innerHTML = '';
-            // Update the HTML output view
             richTextToHtml(); 
         }
 
-        // Initialize the editor with example content when the page loads.
         initializeEditor();
     </script>
 </body>
