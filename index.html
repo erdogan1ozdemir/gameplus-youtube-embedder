@@ -358,10 +358,10 @@
             processNode(body);
 
             // =====================================================
-            // BUG FIX v2: Ardışık aynı türdeki listeleri birleştir.
-            // Aralarında paragraf/div/h2 gibi içerik olsa bile,
-            // aradaki içeriği önceki <li>'nin içine taşıyıp
-            // listeleri tek bir <ol> veya <ul> altında birleştirir.
+            // BUG FIX v3: Ardışık aynı türdeki listeleri birleştir.
+            // Aralarında sadece paragraf (p, div) varsa birleştirir.
+            // Heading (h1-h6) veya farklı yapısal elemanlara
+            // rastladığında birleştirmeyi DURDURUR.
             // =====================================================
             mergeAdjacentLists(body);
             
@@ -393,19 +393,18 @@
         /**
          * Ardışık aynı türdeki liste elemanlarını (<ol>+<ol> veya <ul>+<ul>) birleştirir.
          * 
-         * Senaryo:
-         *   <ol><li>Madde 1</li></ol>
-         *   <p>Açıklama paragrafı...</p>
-         *   <ol><li>Madde 2</li></ol>
-         * 
-         * Sonuç:
-         *   <ol>
-         *     <li>Madde 1<p>Açıklama paragrafı...</p></li>
-         *     <li>Madde 2</li>
-         *   </ol>
+         * Kurallar:
+         * - İki aynı türde liste arasında sadece p, div, br, boş text varsa → birleştir
+         * - Aradaki p/div içeriği önceki <li>'nin içine taşınır
+         * - Heading (h1-h6) veya başka yapısal eleman (table, blockquote vb.) 
+         *   araya girerse → birleştirmeyi DURDUR (bunlar listenin parçası değil)
          */
         function mergeAdjacentLists(container) {
             const listTags = ['OL', 'UL'];
+            // Heading'ler ve yapısal elemanlar: bunlar araya girerse birleştirme durur
+            const STOP_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TABLE', 'BLOCKQUOTE', 'HR', 'SECTION', 'ARTICLE', 'NAV', 'ASIDE', 'HEADER', 'FOOTER']);
+            // Ara içerik olarak <li> içine taşınabilecek elemanlar
+            const ABSORBABLE_TAGS = new Set(['P', 'DIV', 'BR']);
 
             let changed = true;
             while (changed) {
@@ -413,47 +412,65 @@
                 for (const tag of listTags) {
                     const lists = Array.from(container.querySelectorAll(tag));
                     for (const list of lists) {
-                        // Listenin hala DOM'da olup olmadığını kontrol et
                         if (!list.parentNode) continue;
 
-                        // list'ten sonraki kardeşleri tara,
-                        // aradaki tüm non-list node'ları topla
                         let cursor = list.nextSibling;
                         const intermediateNodes = [];
                         let foundNextList = null;
+                        let hitStopper = false;
 
                         while (cursor) {
-                            // Boş text node veya <br> → topla ve devam et
-                            if (
-                                (cursor.nodeType === Node.TEXT_NODE && cursor.textContent.trim() === '') ||
-                                (cursor.nodeType === Node.ELEMENT_NODE && cursor.tagName === 'BR')
-                            ) {
+                            // Boş text node → topla, devam
+                            if (cursor.nodeType === Node.TEXT_NODE && cursor.textContent.trim() === '') {
                                 intermediateNodes.push(cursor);
                                 cursor = cursor.nextSibling;
                                 continue;
                             }
 
-                            // Aynı türde bir liste bulduk → birleştirme hedefi
-                            if (cursor.nodeType === Node.ELEMENT_NODE && cursor.tagName === tag) {
-                                foundNextList = cursor;
+                            // Element node
+                            if (cursor.nodeType === Node.ELEMENT_NODE) {
+                                // Aynı türde liste bulduk → birleştirme hedefi
+                                if (cursor.tagName === tag) {
+                                    foundNextList = cursor;
+                                    break;
+                                }
+
+                                // Heading veya yapısal eleman → DUR, birleştirme yapma
+                                if (STOP_TAGS.has(cursor.tagName)) {
+                                    hitStopper = true;
+                                    break;
+                                }
+
+                                // Farklı türde liste (ol içinde ul veya tersi) → DUR
+                                if (cursor.tagName === 'OL' || cursor.tagName === 'UL') {
+                                    hitStopper = true;
+                                    break;
+                                }
+
+                                // p, div, br → ara içerik olarak topla
+                                if (ABSORBABLE_TAGS.has(cursor.tagName)) {
+                                    intermediateNodes.push(cursor);
+                                    cursor = cursor.nextSibling;
+                                    continue;
+                                }
+
+                                // Tanımlanamayan başka element → güvenli tarafta kal, dur
+                                hitStopper = true;
                                 break;
                             }
 
-                            // Farklı bir element veya anlamlı text → ara içerik olarak topla
-                            if (
-                                cursor.nodeType === Node.ELEMENT_NODE ||
-                                (cursor.nodeType === Node.TEXT_NODE && cursor.textContent.trim() !== '')
-                            ) {
+                            // Anlamlı text node (element değil) → topla
+                            if (cursor.nodeType === Node.TEXT_NODE && cursor.textContent.trim() !== '') {
                                 intermediateNodes.push(cursor);
                                 cursor = cursor.nextSibling;
                                 continue;
                             }
 
-                            // Hiçbirine uymuyorsa dur
                             break;
                         }
 
-                        if (!foundNextList) continue;
+                        // Eğer stopper'a çarptıysak veya sonraki liste bulunamadıysa, geç
+                        if (hitStopper || !foundNextList) continue;
 
                         // Aradaki gerçek içerik var mı?
                         const hasRealContent = intermediateNodes.some(n => {
@@ -463,14 +480,13 @@
                         });
 
                         if (hasRealContent) {
-                            // Aradaki içeriği, birinci listenin son <li>'sine taşı
+                            // Aradaki içeriği birinci listenin son <li>'sine taşı
                             const lastLi = list.querySelector('li:last-child');
                             if (lastLi) {
                                 for (const node of intermediateNodes) {
                                     lastLi.appendChild(node);
                                 }
                             } else {
-                                // <li> yoksa (edge case), aradaki node'ları sil
                                 for (const node of intermediateNodes) {
                                     node.remove();
                                 }
@@ -482,15 +498,15 @@
                             }
                         }
 
-                        // İkinci listenin tüm çocuklarını birinciye taşı
+                        // İkinci listenin çocuklarını birinciye taşı
                         while (foundNextList.firstChild) {
                             list.appendChild(foundNextList.firstChild);
                         }
                         foundNextList.remove();
                         changed = true;
-                        break; // DOM değişti, baştan tara
+                        break;
                     }
-                    if (changed) break; // Dış döngüyü de kır
+                    if (changed) break;
                 }
             }
         }
