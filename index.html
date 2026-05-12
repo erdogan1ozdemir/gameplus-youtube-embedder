@@ -357,6 +357,13 @@
             
             processNode(body);
 
+            // Tablo yapısını normalize et: colgroup/col temizle, ilk satırı thead'e terfi ettir,
+            // hücre içindeki gereksiz <p>/<strong> sarmalayıcılarını ve artık <br>'leri kaldır.
+            normalizeTables(body, doc);
+
+            // External link kuralları: target="_blank" + rel="nofollow noopener"
+            normalizeLinks(body);
+
             // =====================================================
             // BUG FIX v3: Ardışık aynı türdeki listeleri birleştir.
             // Aralarında sadece paragraf (p, div) varsa birleştirir.
@@ -383,11 +390,135 @@
                 }
             });
 
+            // Body kenarındaki <br> ve boşluk artıklarını temizle (paste sonrası oluşan baş/son <br>'ler)
+            const isStripableEdge = n =>
+                (n.nodeType === Node.ELEMENT_NODE && n.tagName === 'BR') ||
+                (n.nodeType === Node.TEXT_NODE && n.textContent.trim() === '');
+            while (body.firstChild && isStripableEdge(body.firstChild)) body.firstChild.remove();
+            while (body.lastChild && isStripableEdge(body.lastChild)) body.lastChild.remove();
+
             let cleanedHtml = body.innerHTML;
             cleanedHtml = cleanedHtml.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
             cleanedHtml = cleanedHtml.replace(/&nbsp;/g, ' ');
 
             return cleanedHtml.trim();
+        }
+
+        /**
+         * Tablo yapısını editöryal HTML standardına çevirir:
+         * - <colgroup>/<col> elementlerini siler (Word/Office paste artıkları)
+         * - İlk <tr>'yi <thead>'e terfi ettirir, <td>'leri <th>'ye dönüştürür
+         * - <td>/<th> içinde tek başına <p> varsa unwrap eder
+         * - <th> içinde tek başına <strong> varsa unwrap eder (header zaten kalın)
+         * - Hücre baş/sonundaki <br> ve whitespace artıklarını temizler
+         */
+        function normalizeTables(container, doc) {
+            // A. <colgroup> ve <col> elementlerini sil
+            container.querySelectorAll('colgroup, col').forEach(el => el.remove());
+
+            // B. <thead> yoksa, ilk satırı <thead>'e terfi ettir; hücreleri <th>'ye çevir
+            container.querySelectorAll('table').forEach(table => {
+                if (table.querySelector('thead')) return;
+                const firstRow = table.querySelector('tr');
+                if (!firstRow) return;
+
+                Array.from(firstRow.children).forEach(cell => {
+                    if (cell.tagName !== 'TD' && cell.tagName !== 'TH') return;
+                    const th = doc.createElement('th');
+                    while (cell.firstChild) th.appendChild(cell.firstChild);
+                    cell.parentNode.replaceChild(th, cell);
+                });
+
+                const tbody = firstRow.parentNode;
+                const thead = doc.createElement('thead');
+                thead.appendChild(firstRow);
+                if (tbody && tbody.tagName === 'TBODY' && tbody.parentNode === table) {
+                    table.insertBefore(thead, tbody);
+                } else {
+                    table.insertBefore(thead, table.firstChild);
+                }
+            });
+
+            // D. Hücre baş/sonundaki <br> ve whitespace'i kırp (C'den ÖNCE çünkü tek <p> tespiti için temiz olmalı)
+            const isCellStripable = n =>
+                (n.nodeType === Node.ELEMENT_NODE && n.tagName === 'BR') ||
+                (n.nodeType === Node.TEXT_NODE && n.textContent.trim() === '');
+            container.querySelectorAll('td, th').forEach(cell => {
+                while (cell.firstChild && isCellStripable(cell.firstChild)) cell.firstChild.remove();
+                while (cell.lastChild && isCellStripable(cell.lastChild)) cell.lastChild.remove();
+            });
+
+            // C. <td>/<th> içinde tek <p> sarmalayıcısı varsa aç
+            container.querySelectorAll('td, th').forEach(cell => {
+                const elementChildren = Array.from(cell.children);
+                if (elementChildren.length === 1 && elementChildren[0].tagName === 'P') {
+                    const p = elementChildren[0];
+                    while (p.firstChild) cell.insertBefore(p.firstChild, p);
+                    p.remove();
+                }
+            });
+
+            // C2. <th> içinde tek <strong> varsa aç (header zaten kalın render olur)
+            container.querySelectorAll('th').forEach(cell => {
+                const elementChildren = Array.from(cell.children);
+                if (elementChildren.length === 1 && elementChildren[0].tagName === 'STRONG') {
+                    const strong = elementChildren[0];
+                    while (strong.firstChild) cell.insertBefore(strong.firstChild, strong);
+                    strong.remove();
+                }
+            });
+        }
+
+        /**
+         * <a href> taglerini external/internal ayrımına göre normalize eder:
+         * - External (3. parti): target="_blank" + rel="nofollow noopener"
+         *   (yeni sekmede aç + SEO juice geçirme + tabnabbing koruması)
+         * - Internal (gameplus.com.tr, turkcell.com.tr, relative, anchor): target ve rel kaldırılır
+         * - mailto:/tel:/javascript: → dokunulmaz
+         */
+        function normalizeLinks(container) {
+            const INTERNAL_DOMAINS = ['gameplus.com.tr', 'turkcell.com.tr'];
+
+            const isInternalHost = (host) => {
+                host = host.toLowerCase();
+                return INTERNAL_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+            };
+
+            container.querySelectorAll('a[href]').forEach(a => {
+                const href = a.getAttribute('href') || '';
+
+                // Özel protokoller: dokunma
+                if (/^(mailto:|tel:|javascript:|sms:)/i.test(href)) return;
+
+                let isInternal = false;
+
+                if (href === '' || href.startsWith('#')) {
+                    // Boş veya anchor link → internal
+                    isInternal = true;
+                } else if (href.startsWith('//')) {
+                    // Protokol-relative: //example.com/...
+                    const host = href.slice(2).split('/')[0].split(':')[0];
+                    isInternal = isInternalHost(host);
+                } else if (href.startsWith('/') || !/^https?:\/\//i.test(href)) {
+                    // Root-relative (/path) veya protokolsüz relative → internal
+                    isInternal = true;
+                } else {
+                    // http(s)://...
+                    try {
+                        isInternal = isInternalHost(new URL(href).hostname);
+                    } catch (e) {
+                        isInternal = false;
+                    }
+                }
+
+                if (isInternal) {
+                    a.removeAttribute('target');
+                    a.removeAttribute('rel');
+                } else {
+                    a.setAttribute('target', '_blank');
+                    a.setAttribute('rel', 'nofollow noopener');
+                }
+            });
         }
 
         /**
